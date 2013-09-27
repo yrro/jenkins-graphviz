@@ -1,0 +1,101 @@
+#!/usr/bin/python
+
+from __future__ import print_function
+
+import itertools
+import json
+from pprint import pprint
+import string
+import urllib
+import urllib2
+import urlparse
+import re
+import sys
+
+import BeautifulSoup
+
+dot_template = '''
+digraph {
+        graph [rankdir="LR",fontsize=9,fontname="Sans"]
+        node [fontname="Sans",fontsize=9]
+        subgraph cluster_view {
+                label = "$view_name"
+                $view_jobs
+        }
+        $other_jobs
+        $subproject_edges
+        $pipeline_edges
+}
+'''
+
+def view_url(base, view):
+        '''
+        >>> view_url('http://server/', '')
+        'http://server/'
+        >>> view_url('http://server/', 'All')
+        'http://server/view/All/'
+        >>> view_url('http://server/', 'With Space')
+        'http://server/view/With%20Space/'
+        >>> view_url('http://server', 'missing_slash')
+        'http://server/view/missing_slash/'
+
+        '''
+        return urlparse.urljoin(base, 'view/{0}/'.format(urllib.quote(view)) if view else '')
+
+def api_fetch(url):
+        url = urlparse.urljoin(url, 'api/json')
+        return json.load(urllib2.urlopen(url))
+
+def soup_fetch(url):
+        return BeautifulSoup.BeautifulSoup(urllib2.urlopen(url))
+
+def main():
+        view_jobs = {}
+        other_jobs = {}
+        pipeline_edges = set()
+        subproject_edges = set()
+
+        view = 'Data Warehouse'
+        url = view_url('http://hades:8081/', view)
+        for job in api_fetch(url)['jobs']:
+                view_jobs[job['name']] = job
+
+        # Downstreams are when a job uses the 'build other projects' post-build action
+        for job in view_jobs.values():
+                job_detail = api_fetch(job['url'])
+                for downstream in job_detail['downstreamProjects']:
+                        pipeline_edges.add ((job['name'], downstream['name']))
+                        if downstream['name'] not in view_jobs:
+                                other_jobs[downstream['name']] = downstream
+                for upstream in job_detail['upstreamProjects']:
+                        pipeline_edges.add ((upstream['name'], job['name']))
+                        if upstream['name'] not in view_jobs:
+                                other_jobs[upstream['name']] = upstream
+
+        # Subprojects when a job uses the 'trigger/call builds on other projects' build step
+        # TODO!
+        for job in itertools.chain(view_jobs.values(), other_jobs.values()):
+                job['soup'] = soup_fetch(job['url'])
+
+                job['subprojects'] = set()
+                subprojects_h2 = job['soup'].find('h2', text='Subprojects')
+                if subprojects_h2:
+                        for subproject in subprojects_h2.next.findChildren('li', recursive=False):
+                                job['subprojects'].add(subproject.findChild('a').text)
+
+                for subproject in job['subprojects']:
+                        subproject_edges.add ((job['name'], subproject))
+
+                job['enabled'] = False if job['soup'].find(text=re.compile('This project is currently disabled')) else True
+
+        print(string.Template(dot_template).substitute({
+                'view_name': view,
+                'view_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}", color="{2}", fontcolor="{2}"]'.format(job['name'], job['url'], 'black' if job['enabled'] else 'grey') for name, job in sorted(view_jobs.iteritems())]),
+                'other_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}"]'.format(job['name'], job['url']) for name, job in sorted(other_jobs.iteritems())]),
+                'pipeline_edges': '\n'.join(['"{0}" -> "{1}"'.format(a, b) for a, b in pipeline_edges]),
+                'subproject_edges': '\n'.join(['"{0}" -> "{1}" [style=dotted]'.format(a, b) for a, b in subproject_edges])
+        }))
+
+if __name__ == '__main__':
+        main()
+
