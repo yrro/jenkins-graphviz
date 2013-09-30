@@ -12,7 +12,7 @@ import urlparse
 import re
 import sys
 
-import BeautifulSoup
+import lxml.objectify
 
 dot_template = '''
 digraph {
@@ -72,21 +72,18 @@ def main():
                         if upstream['name'] not in view_jobs:
                                 other_jobs[upstream['name']] = upstream
 
-        # Subprojects when a job uses the 'trigger/call builds on other projects' build step
-        # TODO!
         for job in itertools.chain(view_jobs.values(), other_jobs.values()):
-                job['soup'] = soup_fetch(job['url'])
+                job['config'] = lxml.objectify.parse(urllib2.urlopen(urlparse.urljoin(job['url'], 'config.xml')))
 
                 job['subprojects'] = set()
-                subprojects_h2 = job['soup'].find('h2', text='Subprojects')
-                if subprojects_h2:
-                        for subproject in subprojects_h2.next.findChildren('li', recursive=False):
-                                job['subprojects'].add(subproject.findChild('a').text)
+                subprojects = job['config'].xpath('/*/builders/hudson.plugins.parameterizedtrigger.TriggerBuilder/configs/hudson.plugins.parameterizedtrigger.BlockableBuildTriggerConfig/projects')
+                if subprojects:
+                        job['subprojects'].update([s.strip() for s in str(subprojects[0]).split(',')])
 
                 for subproject in job['subprojects']:
                         subproject_edges.add ((job['name'], subproject))
 
-                job['enabled'] = False if job['soup'].find(text=re.compile('This project is currently disabled')) else True
+                job['enabled'] = not job['config'].xpath('/*/disabled')[0]
 
         print(string.Template(dot_template).substitute({
                 'view_name': view,
@@ -98,4 +95,3 @@ def main():
 
 if __name__ == '__main__':
         main()
-
