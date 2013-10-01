@@ -18,6 +18,11 @@ dot_template = '''
 digraph {
         graph [rankdir="LR",fontsize=9,fontname="Sans"]
         node [fontname="Sans",fontsize=9]
+
+        $repos
+        $trigger_edges
+        $repo_edges
+
         subgraph cluster_view {
                 label = "$view_name"
                 $view_jobs
@@ -54,6 +59,9 @@ def main():
         other_jobs = {}
         pipeline_edges = set()
         subproject_edges = set()
+        repos = set()
+        trigger_edges = set()
+        repo_edges = set()
 
         view = 'Data Warehouse'
         url = view_url('http://hades:8081/', view)
@@ -85,7 +93,20 @@ def main():
 
                 job['enabled'] = not job['config'].xpath('/*/disabled')[0]
 
+                for repo in job['config'].xpath('/*/scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig/url'):
+                        repos.add(repo)
+
+                for trigger in job['config'].xpath('/*/triggers/*'):
+                        if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
+                                trigger_edges.add((repo, job['name']))
+                                break
+                else:
+                        repo_edges.add((repo, job['name']))
+
         print(string.Template(dot_template).substitute({
+                'repos': '\n'.join(['"{0}" [URL="{1}",shape=tab]'.format(repo, str(repo).replace('git@github.com:', 'https://github.com/', 1)) for repo in repos]),
+                'trigger_edges': '\n'.join(['"{0}" -> "{1}"'.format(repo, job) for repo, job in trigger_edges]),
+                'repo_edges': '\n'.join(['"{0}" -> "{1}" [style=dashed]'.format(repo, job) for repo, job in repo_edges]),
                 'view_name': view,
                 'view_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}", color="{2}", fontcolor="{2}"]'.format(job['name'], job['url'], 'black' if job['enabled'] else 'grey') for name, job in sorted(view_jobs.iteritems())]),
                 'other_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}"]'.format(job['name'], job['url']) for name, job in sorted(other_jobs.iteritems())]),
