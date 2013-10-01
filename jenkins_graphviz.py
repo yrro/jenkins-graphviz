@@ -93,6 +93,7 @@ def main():
 
                 job['enabled'] = not job['config'].xpath('/*/disabled')[0]
 
+        for job in view_jobs.values():
                 for repo in job['config'].xpath('/*/scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig/url'):
                         repos.add(repo)
 
