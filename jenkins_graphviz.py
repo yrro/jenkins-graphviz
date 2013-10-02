@@ -21,7 +21,6 @@ digraph {
 
         $repos
         $trigger_edges
-        $repo_edges
 
         subgraph cluster_view {
                 label = "$view_name"
@@ -61,7 +60,6 @@ def main():
         subproject_edges = set()
         repos = set()
         trigger_edges = set()
-        repo_edges = set()
 
         view = 'Data Warehouse'
         url = view_url('http://hades:8081/', view)
@@ -94,21 +92,19 @@ def main():
                 job['enabled'] = not job['config'].xpath('/*/disabled')[0]
 
         for job in view_jobs.values():
-                for repo in job['config'].xpath('/*/scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig/url'):
-                        repos.add(repo)
+                for repo in job['config'].xpath('/*/scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig'):
+                        for branch in job['config'].xpath('/*/scm/branches/hudson.plugins.git.BranchSpec'):
+                                repos.add((repo.url, branch.name))
 
-                        for trigger in job['config'].xpath('/*/triggers/*'):
-                                if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
-                                        trigger_edges.add((repo, job['name']))
-                                        break
-                                print(trigger.tag, file=sys.stderr)
-                        #else:
-                        #        repo_edges.add((repo, job['name']))
+                                for trigger in job['config'].xpath('/*/triggers/*'):
+                                        if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
+                                                trigger_edges.add(((repo.url, branch.name), job['name']))
+                                                break
+                                        print(trigger.tag, file=sys.stderr)
 
         print(string.Template(dot_template).substitute({
-                'repos': '\n'.join(['"{0}" [URL="{1}",shape=tab]'.format(repo, str(repo).replace('git@github.com:', 'https://github.com/', 1)) for repo in repos]),
-                'trigger_edges': '\n'.join(['"{0}" -> "{1}"'.format(repo, job) for repo, job in trigger_edges]),
-                'repo_edges': '\n'.join(['"{0}" -> "{1}" [style=dashed]'.format(repo, job) for repo, job in repo_edges]),
+                'repos': '\n'.join(['"{0}\\n{1}" [URL="{2}",shape=tab]'.format(repo[0], repo[1], str(repo[0]).replace('git@github.com:', 'https://github.com/', 1)) for repo in repos]),
+                'trigger_edges': '\n'.join(['"{0}\\n{1}" -> "{2}"'.format(repo[0], repo[1], job) for repo, job in trigger_edges]),
                 'view_name': view,
                 'view_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}", color="{2}", fontcolor="{2}"]'.format(job['name'], job['url'], 'black' if job['enabled'] else 'grey') for name, job in sorted(view_jobs.iteritems())]),
                 'other_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}"]'.format(job['name'], job['url']) for name, job in sorted(other_jobs.iteritems())]),
