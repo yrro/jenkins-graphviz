@@ -100,7 +100,7 @@ def main():
                                         if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
                                                 trigger_edges.add(((repo.url, branch.name), job['name']))
                                                 break
-                                        print(trigger.tag, file=sys.stderr)
+                                        print('Unknown trigger: {}', file=sys.stderr)
 
         print(string.Template(dot_template).substitute({
                 'repos': '\n'.join(['"{0}\\n{1}" [URL="{2}",shape=tab]'.format(repo[0], repo[1], str(repo[0]).replace('git@github.com:', 'https://github.com/', 1)) for repo in repos]),
