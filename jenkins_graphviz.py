@@ -97,12 +97,13 @@ def main():
                 for repo in job['config'].xpath('/*/scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig/url'):
                         repos.add(repo)
 
-                for trigger in job['config'].xpath('/*/triggers/*'):
-                        if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
-                                trigger_edges.add((repo, job['name']))
-                                break
-                else:
-                        repo_edges.add((repo, job['name']))
+                        for trigger in job['config'].xpath('/*/triggers/*'):
+                                if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
+                                        trigger_edges.add((repo, job['name']))
+                                        break
+                                print(trigger.tag, file=sys.stderr)
+                        #else:
+                        #        repo_edges.add((repo, job['name']))
 
         print(string.Template(dot_template).substitute({
                 'repos': '\n'.join(['"{0}" [URL="{1}",shape=tab]'.format(repo, str(repo).replace('git@github.com:', 'https://github.com/', 1)) for repo in repos]),
