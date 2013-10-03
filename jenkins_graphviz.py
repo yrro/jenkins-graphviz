@@ -111,3 +111,5 @@ def main():
 
 if __name__ == '__main__':
         main()
+
+# vim: ts=8 sts=8 sw=8 et
