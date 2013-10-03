@@ -4,12 +4,10 @@ from __future__ import print_function
 
 import itertools
 import json
-from pprint import pprint
 import string
 import urllib
 import urllib2
 import urlparse
-import re
 import sys
 
 import lxml.objectify
