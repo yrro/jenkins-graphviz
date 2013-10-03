@@ -49,9 +49,6 @@ def api_fetch(url):
     url = urlparse.urljoin(url, 'api/json')
     return json.load(urllib2.urlopen(url))
 
-def soup_fetch(url):
-    return BeautifulSoup.BeautifulSoup(urllib2.urlopen(url))
-
 def main():
     parser = argparse.ArgumentParser(description='Output a Graphviz graph based on relationships between Jenkins jobs')
     parser.add_argument('server', help='URL of Jenkins server')
