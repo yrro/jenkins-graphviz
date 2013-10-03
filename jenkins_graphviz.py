@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import argparse
 import itertools
 import json
 import string
@@ -52,6 +53,11 @@ def soup_fetch(url):
     return BeautifulSoup.BeautifulSoup(urllib2.urlopen(url))
 
 def main():
+    parser = argparse.ArgumentParser(description='Output a Graphviz graph based on relationships between Jenkins jobs')
+    parser.add_argument('server', help='URL of Jenkins server')
+    parser.add_argument('--view', '-v', help='Filter jobs by view')
+    args = parser.parse_args()
+
     view_jobs = {}
     other_jobs = {}
     pipeline_edges = set()
@@ -59,8 +65,7 @@ def main():
     repos = set()
     trigger_edges = set()
 
-    view = 'Data Warehouse'
-    url = view_url('http://hades:8081/', view)
+    url = view_url('http://hades:8081/', args.view)
     for job in api_fetch(url)['jobs']:
         view_jobs[job['name']] = job
 
@@ -102,7 +107,7 @@ def main():
     print(string.Template(dot_template).substitute({
         'repos': '\n'.join(['"{0}\\n{1}" [URL="{2}",shape=tab]'.format(repo[0], repo[1], str(repo[0]).replace('git@github.com:', 'https://github.com/', 1)) for repo in repos]),
         'trigger_edges': '\n'.join(['"{0}\\n{1}" -> "{2}"'.format(repo[0], repo[1], job) for repo, job in trigger_edges]),
-        'view_name': view,
+        'view_name': args.view if args.view else '',
         'view_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}", color="{2}", fontcolor="{2}"]'.format(job['name'], job['url'], 'black' if job['enabled'] else 'grey') for name, job in sorted(view_jobs.iteritems())]),
         'other_jobs': '\n'.join(['"{0}" [shape="box", URL="{1}"]'.format(job['name'], job['url']) for name, job in sorted(other_jobs.iteritems())]),
         'pipeline_edges': '\n'.join(['"{0}" -> "{1}"'.format(a, b) for a, b in pipeline_edges]),
