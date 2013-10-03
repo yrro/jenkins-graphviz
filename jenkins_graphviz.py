@@ -7,7 +7,6 @@ import itertools
 import json
 import string
 import urllib
-import urllib2
 import urlparse
 import sys
 
@@ -45,9 +44,17 @@ def view_url(base, view):
     '''
     return urlparse.urljoin(base, 'view/{0}/'.format(urllib.quote(view)) if view else '')
 
+def http_fetch(url):
+    import urllib2
+    try:
+        return urllib2.urlopen(url)
+    except:
+        print('While fetching <{0}>:'.format(url), file=sys.stderr)
+        raise
+
 def api_fetch(url):
     url = urlparse.urljoin(url, 'api/json')
-    return json.load(urllib2.urlopen(url))
+    return json.load(http_fetch(url))
 
 def main():
     parser = argparse.ArgumentParser(description='Output a Graphviz graph based on relationships between Jenkins jobs')
@@ -79,7 +86,7 @@ def main():
                 other_jobs[upstream['name']] = upstream
 
     for job in itertools.chain(view_jobs.values(), other_jobs.values()):
-        job['config'] = lxml.objectify.parse(urllib2.urlopen(urlparse.urljoin(job['url'], 'config.xml')))
+        job['config'] = lxml.objectify.parse(http_fetch(urlparse.urljoin(job['url'], 'config.xml')))
 
         job['subprojects'] = set()
         subprojects = job['config'].xpath('/*/builders/hudson.plugins.parameterizedtrigger.TriggerBuilder/configs/hudson.plugins.parameterizedtrigger.BlockableBuildTriggerConfig/projects')
