@@ -92,10 +92,9 @@ def main():
         for job in view_jobs.values():
                 for repo in job['config'].xpath('/*/scm/userRemoteConfigs/hudson.plugins.git.UserRemoteConfig'):
                         for branch in job['config'].xpath('/*/scm/branches/hudson.plugins.git.BranchSpec'):
-                                repos.add((repo.url, branch.name))
-
                                 for trigger in job['config'].xpath('/*/triggers/*'):
                                         if trigger.tag in ['hudson.triggers.TimerTrigger', 'hudson.triggers.SCMTrigger', 'com.cloudbees.jenkins.GitHubPushTrigger']:
+                                                repos.add((repo.url, branch.name))
                                                 trigger_edges.add(((repo.url, branch.name), job['name']))
                                                 break
                                         print('Unknown trigger: {}', file=sys.stderr)
