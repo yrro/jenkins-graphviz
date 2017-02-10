@@ -69,7 +69,7 @@ def main():
     repos = set()
     trigger_edges = set()
 
-    url = view_url('http://hades:8081/', args.view)
+    url = view_url(args.server, args.view)
     for job in api_fetch(url)['jobs']:
         view_jobs[job['name']] = job
 
